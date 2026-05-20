@@ -109,7 +109,7 @@ for k, v in defaults.items():
 with st.sidebar:
     st.markdown("## ⚙️ CONFIG")
     api_key = st.text_input("Groq API Key", value=default_key, type="password", placeholder="gsk_...")
-    model   = st.selectbox("Model", ["llama-3.3-70b-versatile","llama-3.1-8b-instant"])
+    model   = st.selectbox("Model", ["llama-3.1-8b-instant","llama-3.3-70b-versatile"], help="8b is faster and less likely to hit rate limits")
     st.divider()
 
     if st.session_state.mode:

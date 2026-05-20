@@ -20,18 +20,28 @@ def clean_json(raw: str) -> dict:
         return {}
 
 def chat_response(client, model, mode, messages, user_context="", resume_summary=""):
-    """Get chat response based on mode."""
+    """Get chat response based on mode with retry on rate limit."""
+    import time
     system = JOB_SEEKER_SYSTEM if mode == "job_seeker" else HR_MANAGER_SYSTEM
     system = system.format(
         user_context=user_context or "Not provided",
         resume_summary=resume_summary or "No resume uploaded yet"
     )
-    resp = client.chat.completions.create(
-        model=model,
-        max_tokens=1000,
-        messages=[{"role":"system","content":system}] + messages,
-    )
-    return resp.choices[0].message.content.strip()
+    for attempt in range(3):
+        try:
+            resp = client.chat.completions.create(
+                model=model,
+                max_tokens=800,
+                messages=[{"role":"system","content":system}] + messages[-10:],
+            )
+            return resp.choices[0].message.content.strip()
+        except Exception as e:
+            if "rate_limit" in str(e).lower() or "429" in str(e):
+                wait = (attempt + 1) * 5
+                time.sleep(wait)
+            else:
+                raise e
+    return "⚠️ HIRA is busy right now. Please wait a moment and try again."
 
 def analyze_resume(client, model, resume_text: str) -> dict:
     """Analyze resume and return structured JSON."""
@@ -44,19 +54,28 @@ def analyze_resume(client, model, resume_text: str) -> dict:
     return clean_json(resp.choices[0].message.content)
 
 def mock_interview_response(client, model, messages, job_role, interview_type, background, q_num):
-    """Get mock interview response."""
+    """Get mock interview response with retry."""
+    import time
     system = MOCK_INTERVIEW_SYSTEM.format(
         job_role=job_role,
         interview_type=interview_type,
         candidate_background=background or "Not specified",
         q_num=q_num,
     )
-    resp = client.chat.completions.create(
-        model=model,
-        max_tokens=800,
-        messages=[{"role":"system","content":system}] + messages,
-    )
-    return resp.choices[0].message.content.strip()
+    for attempt in range(3):
+        try:
+            resp = client.chat.completions.create(
+                model=model,
+                max_tokens=600,
+                messages=[{"role":"system","content":system}] + messages[-8:],
+            )
+            return resp.choices[0].message.content.strip()
+        except Exception as e:
+            if "rate_limit" in str(e).lower() or "429" in str(e):
+                time.sleep((attempt + 1) * 5)
+            else:
+                raise e
+    return "⚠️ Rate limit hit. Please wait a few seconds and try again."
 
 def generate_career_report(client, model, candidate_info, resume_summary, target_role, chat_history):
     """Generate comprehensive career report."""
